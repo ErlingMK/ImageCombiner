@@ -1,2 +1,3 @@
 ﻿  ImageCombiner.cpp
+c:\users\erlin\source\repos\imagecombiner\imagecombiner\imagecombiner.cpp(128): warning C4267: '=': conversion from 'size_t' to 'int', possible loss of data
   ImageCombiner.vcxproj -> C:\Users\erlin\source\repos\ImageCombiner\x64\Debug\ImageCombiner.exe
