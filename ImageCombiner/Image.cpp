@@ -6,6 +6,13 @@ Image::Image()
 {
 }
 
+Image::Image(std::string width, std::string height, std::string maxVal)
+{ 
+	Image::height = height;
+	Image::width = width;
+	Image::colorVal = maxVal;
+}
+
 
 Image::~Image()
 {
@@ -56,9 +63,9 @@ void Image::GetDimensionsAndColorValue(std::fstream& imageFile)
 		while (!isspace(c))
 		{
 			imageFile.get(c);
-			heigth += c;
+			height += c;
 		}
-		heigth.pop_back();
+		height.pop_back();
 
 		c = '0';
 		while (!isspace(c))
@@ -79,10 +86,10 @@ void Image::ExtractImageRows(std::fstream & imageFile)
 	}
 
 	int i_width = std::stoi(width);
-	int i_heigth = std::stoi(heigth);
+	int i_height = std::stoi(height);
 
 	//char* row;
-	for (int i = 0; i < i_heigth; ++i)
+	for (int i = 0; i < i_height; ++i)
 	{
 		std::shared_ptr<char[]> row(new char[i_width * 3]);
 		//row = new char[i_width * 3];
@@ -93,4 +100,20 @@ void Image::ExtractImageRows(std::fstream & imageFile)
 		pixelRows.emplace_back(row);
 	}
 	//row = nullptr;
+}
+
+void Image::FillWithBlack()
+{
+	int i_width = std::stoi(width);
+	int i_height = std::stoi(height);
+	for (int i = 0; i < i_height; ++i)
+	{
+		std::shared_ptr<char[]> blackRow(new char[i_width * 3]);
+		char * t = blackRow.get();
+		for (int i = 0; i < i_width * 3; ++i)
+		{
+			t[i] = '0';
+		}
+		pixelRows.emplace_back(blackRow);
+	}
 }

@@ -10,9 +10,10 @@ class Image
 {
 public:
 	Image();
+	Image(std::string width, std::string height, std::string maxVal);
 	virtual ~Image();
 
-	std::string heigth;
+	std::string height;
 	std::string width;
 	std::string colorVal;
 	std::vector<std::shared_ptr<char[]>> pixelRows;
@@ -20,6 +21,7 @@ public:
 	bool IsPpm(std::fstream& imageFile);
 	void GetDimensionsAndColorValue(std::fstream& imageFile);
 	void ExtractImageRows(std::fstream& imageFile);
+	void FillWithBlack();
 
 private:
 	bool isPpm;
