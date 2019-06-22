@@ -23,11 +23,11 @@ public:
 	void determineDimensionsAndMaxValue(std::fstream& image_file);
 	void extractImageRows(std::fstream& image_file);
 	void fillWithBlack();
+	int m_data_points_per_pixel;
 
 private:
 	bool is_ppm_;
 	bool is_pgm_;
-	int m_data_points_per_pixel_;
 	int m_bytes_per_data_point_;
 };
 

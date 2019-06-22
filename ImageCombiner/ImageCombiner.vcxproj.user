@@ -5,7 +5,7 @@
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <LocalDebuggerCommandArguments>D:/VizlabRecordings/05_05_19_21_47_54 30 2 2</LocalDebuggerCommandArguments>
+    <LocalDebuggerCommandArguments>D:\VizlabRecordings\22_06_19_13_17_11 10 1 2</LocalDebuggerCommandArguments>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
   </PropertyGroup>
 </Project>

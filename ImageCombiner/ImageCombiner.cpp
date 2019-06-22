@@ -16,7 +16,7 @@ static int numberOfImageColumns;
 static int numberOfCameras;
 static int numberOfImagesPerCamera;
 static std::string nameOfNewImageFolder = "combined";
-static std::string imageFormat = ".ppm";
+static std::string imageFormat = ".pgm";
 
 static std::streampos widthPos = 3;
 static int widthBytes = 4;
@@ -61,6 +61,7 @@ void createCombinedImage(std::vector<std::vector<Image>>& image_matrix, const in
 	const auto single_image_height = std::stoi(image_matrix[0][0].height);
 	const auto max_val = std::stoi(image_matrix[0][0].max_val);
 	const auto m_image_format = image_matrix[0][0].image_format;
+	const auto data_points = image_matrix[0][0].m_data_points_per_pixel;
 
 	// Creates a folder in recordingDir for the new combined images, if it doesn't already exist.
 	auto combined_image_folder = recordingDir;
@@ -70,20 +71,18 @@ void createCombinedImage(std::vector<std::vector<Image>>& image_matrix, const in
 
 	new_image_file.open(new_file_path /= (std::to_string(image_file_name) + m_image_format), std::ios::binary | std::ios::out);
 
-	new_image_file << m_image_format << "\n" << single_image_width * numberOfImageColumns << " " << single_image_height * numberOfImageRows << "\n" << max_val
+	new_image_file << "P5" << "\n" << single_image_width * numberOfImageColumns << " " << single_image_height * numberOfImageRows << "\n" << max_val
 		<< "\n";
 
 	// Each image row
 	for (auto& k : image_matrix)
 	{
-		// Each row of pixels in a single image
 		for (auto i = 0; i < single_image_height; ++i)
 		{
-			// Each image in row
 			for (auto& j : k)
 			{
 				auto& pixel_rows = j.pixel_rows;
-				new_image_file.write(pixel_rows[i].get(), strlen(pixel_rows[i].get()));
+				new_image_file.write(pixel_rows[i].get(), single_image_width * data_points);
 			}
 		}
 	}
@@ -118,9 +117,9 @@ void combineImagesFromOneTimestamp(const int image_file_name, std::vector<std::s
 	const auto images_in_last_col = (numberOfImageColumns - helper());
 
 	auto image_def = checkDimensions(folders_in_order, image_file_name);
-	auto max_val = image_def.max_val;
-	auto image_width = image_def.width;
-	auto image_height = image_def.height;
+	std::string max_val = image_def.max_val;
+	std::string image_width = image_def.width;
+	std::string image_height = image_def.height;
 
 	auto cam_counter = 0;
 	std::vector<std::vector<Image>> image_matrix;

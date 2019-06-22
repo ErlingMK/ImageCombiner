@@ -3,12 +3,12 @@
 #include <utility>
 
 
-Image::Image(): is_ppm_(false), is_pgm_(false), m_data_points_per_pixel_(0), m_bytes_per_data_point_(0)
+Image::Image(): is_ppm_(false), is_pgm_(false), m_data_points_per_pixel(0), m_bytes_per_data_point_(0)
 {
 }
 
 Image::Image(std::string width, std::string height, std::string max_val): is_ppm_(false), is_pgm_(false),
-                                                                          m_data_points_per_pixel_(0),
+                                                                          m_data_points_per_pixel(0),
                                                                           m_bytes_per_data_point_(0)
 {
 	Image::height = std::move(height);
@@ -30,7 +30,7 @@ std::string Image::determineFormat(std::fstream & image_file)
 		image_file.read(magic_number, 2);
 
 		const std::string no = magic_number;
-		if (no != "P6" || no != "P5")
+		if (no != "P6" && no != "P5")
 		{
 			delete[] magic_number;
 			std::cout << "Not a .PPM or .PGM file. Exiting..." << std::endl;
@@ -39,14 +39,14 @@ std::string Image::determineFormat(std::fstream & image_file)
 		if (no == "P6")
 		{
 			is_ppm_ = true;
-			image_format = "P6";
-			m_data_points_per_pixel_ = 3;
+			image_format = ".ppm";
+			m_data_points_per_pixel = 3;
 			delete[] magic_number;
 			return "P6";
 		}
 		is_pgm_ = true;
-		image_format = "P5";
-		m_data_points_per_pixel_ = 1;
+		image_format = ".pgm";
+		m_data_points_per_pixel = 1;
 		delete[] magic_number;
 		return "P5";
 	}
@@ -100,10 +100,10 @@ void Image::extractImageRows(std::fstream & image_file)
 
 	for (auto i = 0; i < i_height; ++i)
 	{
-		std::shared_ptr<char[]> row(new char[i_width * m_data_points_per_pixel_ * m_bytes_per_data_point_]);
+		std::shared_ptr<char[]> row(new char[i_width * m_data_points_per_pixel * m_bytes_per_data_point_]);
 		if (image_file.is_open())
 		{
-			image_file.read(row.get(), (i_width * m_data_points_per_pixel_ * m_bytes_per_data_point_));
+			image_file.read(row.get(), (i_width * m_data_points_per_pixel * m_bytes_per_data_point_));
 		}
 		pixel_rows.emplace_back(row);
 	}
@@ -116,9 +116,9 @@ void Image::fillWithBlack()
 
 	for (auto i = 0; i < i_height; ++i)
 	{
-		std::shared_ptr<char[]> black_row(new char[i_width * m_data_points_per_pixel_ * m_bytes_per_data_point_]);
+		std::shared_ptr<char[]> black_row(new char[i_width * m_data_points_per_pixel * m_bytes_per_data_point_]);
 		const auto t = black_row.get();
-		for (auto z = 0; z < i_width * m_data_points_per_pixel_ * m_bytes_per_data_point_; ++z)
+		for (size_t z = 0; z < strlen(t); ++z)
 		{
 			t[z] = NULL;
 		}
