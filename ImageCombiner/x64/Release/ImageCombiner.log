@@ -1,10 +1,8 @@
 ﻿  pch.cpp
   Image.cpp
   ImageCombiner.cpp
-c:\users\erlin\source\repos\imagecombiner\imagecombiner\imagecombiner.cpp(187): warning C4267: '=': conversion from 'size_t' to 'int', possible loss of data
+c:\users\erlin\source\repos\imagecombiner\imagecombiner\imagecombiner.cpp(190): warning C4267: '=': conversion from 'size_t' to 'int', possible loss of data
   Generating code
-  752 of 813 functions (92.5%) were compiled, the rest were copied from previous compilation.
-    492 functions were new in current compilation
-    17 functions had inline decision re-evaluated but remain unchanged
+  All 814 functions were compiled because no usable IPDB/IOBJ from previous compilation was found.
   Finished generating code
   ImageCombiner.vcxproj -> C:\Users\erlin\source\repos\ImageCombiner\x64\Release\ImageCombiner.exe

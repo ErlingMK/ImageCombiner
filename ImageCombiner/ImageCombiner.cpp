@@ -1,4 +1,3 @@
-
 #include "pch.h"
 #include <filesystem>
 #include <iostream>
@@ -12,21 +11,22 @@
 #pragma warning(disable : 4996)
 
 static std::filesystem::path recordingDir;
-static int numberOfImageColumns;
 static int numberOfImageRows;
+static int numberOfImageColumns;
 static int numberOfCameras;
 static int numberOfImagesPerCamera;
 static std::string nameOfNewImageFolder = "combined";
+static std::string imageFormat = ".ppm";
 
 static std::streampos widthPos = 3;
 static int widthBytes = 4;
 static std::streampos startOfImageData;
 
 
-std::string CurrentDateTime()
+std::string currentDateTime()
 {
-	time_t now = time(0);
-	struct tm tstruct;
+	auto now = time(nullptr);
+	struct tm tstruct{};
 	char buf[80];
 	tstruct = *localtime(&now);
 	strftime(buf, sizeof(buf), "%d_%m_%y_%H_%M_%S", &tstruct);
@@ -36,142 +36,177 @@ std::string CurrentDateTime()
 
 int helper()
 {
-	return(numberOfImageColumns * numberOfImageRows) - numberOfCameras;
+	return (numberOfImageColumns * numberOfImageRows) - numberOfCameras;
 }
 
-// All images must be of the same dimensions.
-void CreatePpm(std::vector<std::vector<Image>>& imageMatrix, int imageFileName)
+void readImageAndExtractPixels(const std::filesystem::path& image_file_path, std::vector<Image>& image_row)
 {
-	std::fstream newFile;
-	int imageWidth = std::stoi(imageMatrix[0][0].width);
-	int imageHeight = std::stoi(imageMatrix[0][0].height);
-	int maxVal = std::stoi(imageMatrix[0][0].colorVal);
+	std::fstream image_file;
+	Image image;
+
+	image_file.open(image_file_path, std::ios::binary | std::ios::in);
+	image.extractImageRows(image_file);
+	image_file.close();
+
+	image_row.push_back(image);
+}
+
+
+// All images must be of the same dimensions.
+void createCombinedImage(std::vector<std::vector<Image>>& image_matrix, const int image_file_name)
+{
+	std::fstream new_image_file;
+
+	const auto single_image_width = std::stoi(image_matrix[0][0].width);
+	const auto single_image_height = std::stoi(image_matrix[0][0].height);
+	const auto max_val = std::stoi(image_matrix[0][0].max_val);
+	const auto m_image_format = image_matrix[0][0].image_format;
 
 	// Creates a folder in recordingDir for the new combined images, if it doesn't already exist.
-	std::filesystem::path combinedImageFolder = recordingDir;
-	combinedImageFolder /= nameOfNewImageFolder;
-	std::filesystem::create_directory(combinedImageFolder);
-	std::filesystem::path newFilePath = combinedImageFolder;
+	auto combined_image_folder = recordingDir;
+	combined_image_folder /= nameOfNewImageFolder;
+	create_directory(combined_image_folder);
+	auto new_file_path = combined_image_folder;
 
-	newFile.open(newFilePath /= (std::to_string(imageFileName) + ".ppm"), std::ios::binary | std::ios::out);
-	newFile << "P6\n" << imageWidth * numberOfImageColumns << " " << imageHeight * numberOfImageRows << "\n" << maxVal <<"\n";
+	new_image_file.open(new_file_path /= (std::to_string(image_file_name) + m_image_format), std::ios::binary | std::ios::out);
 
-	for (int k = 0; k < imageMatrix.size(); ++k)
+	new_image_file << m_image_format << "\n" << single_image_width * numberOfImageColumns << " " << single_image_height * numberOfImageRows << "\n" << max_val
+		<< "\n";
+
+	// Each image row
+	for (auto& k : image_matrix)
 	{
-		for (int i = 0; i < imageHeight; ++i)
+		// Each row of pixels in a single image
+		for (auto i = 0; i < single_image_height; ++i)
 		{
-			for (int j = 0; j < imageMatrix[k].size(); ++j) {
-				std::vector<std::shared_ptr<char[]>>& pixelRows = imageMatrix[k][j].pixelRows;
-				newFile.write(pixelRows[i].get(), imageWidth * 3);
+			// Each image in row
+			for (auto& j : k)
+			{
+				auto& pixel_rows = j.pixel_rows;
+				new_image_file.write(pixel_rows[i].get(), strlen(pixel_rows[i].get()));
 			}
 		}
 	}
-	newFile.close();
-	imageMatrix.clear();
+	new_image_file.close();
+	image_matrix.clear();
 }
 
-// TODO: Find a way to get imagefile name for each image to be combined
-void CombineImagesFromOneTimestamp(const int imageFileName, std::vector<std::string>& foldersInOrder)
+Image checkDimensions(std::vector<std::string>& folders_in_order, const int image_file_name)
 {
-	std::fstream imageFile;
-	std::vector<std::vector<Image>> imageMatrix;
-	int camCounter = 0;
+	std::fstream image_file;
+	Image image;
 
-	// Outer loop goes through each row in combined image
-	for (int rowNumber = 0; rowNumber < numberOfImageRows; ++rowNumber)
+	auto recording_dir = recordingDir;
+	const auto image_file_path(recording_dir /=
+		folders_in_order[0] + "\\" + std::to_string(image_file_name) + imageFormat);
+
+	image_file.open(image_file_path, std::ios::binary | std::ios::in);
+	image.determineFormat(image_file);
+	image.determineDimensionsAndMaxValue(image_file);
+	image_file.close();
+
+	return image;
+}
+
+bool inLastRowWithEmptySpots(const int row_number, const int images_in_last_col)
+{
+	return row_number == (numberOfImageRows - 1) && images_in_last_col != numberOfImageColumns;
+}
+
+void combineImagesFromOneTimestamp(const int image_file_name, std::vector<std::string>& folders_in_order)
+{
+	const auto images_in_last_col = (numberOfImageColumns - helper());
+
+	auto image_def = checkDimensions(folders_in_order, image_file_name);
+	auto max_val = image_def.max_val;
+	auto image_width = image_def.width;
+	auto image_height = image_def.height;
+
+	auto cam_counter = 0;
+	std::vector<std::vector<Image>> image_matrix;
+
+	for (auto row_number = 0; row_number < numberOfImageRows; ++row_number)
 	{
-		imageMatrix.push_back(std::vector<Image>());
-
-		int imagesInLastCol = (numberOfImageColumns - helper());
-		if (rowNumber == (numberOfImageRows - 1) && imagesInLastCol != numberOfImageColumns)
+		image_matrix.emplace_back();
+		if (inLastRowWithEmptySpots(row_number, images_in_last_col))
 		{
-			for (int posInLastRow = 0; posInLastRow < numberOfImageColumns; ++posInLastRow)
+			for (auto pos_in_last_row = 0; pos_in_last_row < numberOfImageColumns; ++pos_in_last_row)
 			{
-				Image image;
-
-				// Fills any remainding places in last image row with empty images
-				if (posInLastRow >= imagesInLastCol)
+				if (pos_in_last_row >= images_in_last_col)
 				{
-					Image emptyImage("1280", "1024", "255");
-					emptyImage.FillWithBlack();
-					imageMatrix[rowNumber].push_back(emptyImage);
-				} 
+					Image empty_image(image_width, image_height, max_val);
+					empty_image.fillWithBlack();
+					image_matrix[row_number].push_back(empty_image);
+				}
 				else
 				{
-					std::filesystem::path _recordingDir = recordingDir;
-					std::filesystem::path imageFilePath(foldersInOrder[camCounter] + "\\" + std::to_string(imageFileName) + ".ppm");
+					auto recording_dir = recordingDir;
+					const auto image_file_path(recording_dir /=
+						folders_in_order[cam_counter] + "\\" + std::to_string(image_file_name) + imageFormat);
+					cam_counter++;
 
-					imageFile.open(_recordingDir /= imageFilePath, std::ios::binary | std::ios::in);
-					image.ExtractImageRows(imageFile);
-					imageFile.close();
-					imageMatrix[rowNumber].push_back(image);
-					camCounter++;
+					readImageAndExtractPixels(image_file_path, image_matrix[row_number]);
 				}
 			}
 		}
 		else
 		{
-			// This loop goes through each column in combined image
-			for (int colNumber = 0; colNumber < numberOfImageColumns; ++colNumber)
+			for (auto col_number = 0; col_number < numberOfImageColumns; ++col_number)
 			{
-				Image image;
+				auto recording_dir = recordingDir;
+				const auto image_file_path(recording_dir /=
+					folders_in_order[cam_counter] + "\\" + std::to_string(image_file_name) + imageFormat);
+				cam_counter++;
 
-				std::filesystem::path _recordingDir = recordingDir;
-				std::filesystem::path imageFilePath(foldersInOrder[camCounter] + "\\" + std::to_string(imageFileName) + ".ppm");
-
-				imageFile.open(_recordingDir /= imageFilePath, std::ios::binary | std::ios::in);
-				image.ExtractImageRows(imageFile);
-				imageFile.close();
-				imageMatrix[rowNumber].push_back(image);
-				camCounter++;
+				readImageAndExtractPixels(image_file_path, image_matrix[row_number]);
 			}
 		}
 	}
-	CreatePpm(imageMatrix, imageFileName);
+	createCombinedImage(image_matrix, image_file_name);
 }
 
-void CombineImages(std::vector<std::string>& foldersInOrder)
+void combineImages(std::vector<std::string>& folders_in_order)
 {
-	for (int imageFileName = 0; imageFileName < numberOfImagesPerCamera; ++imageFileName)
+	for (auto image_file_name = 0; image_file_name < numberOfImagesPerCamera; ++image_file_name)
 	{
-		CombineImagesFromOneTimestamp(imageFileName, foldersInOrder);
+		combineImagesFromOneTimestamp(image_file_name, folders_in_order);
 	}
 }
 
-// Extracts the order the images from the cameras shall be put in from a txt file containing the names of the image folders in that order. The txt file must be named the same as the folder containing the image folders. One image folder per camera.
-void FindFolderOrder(std::filesystem::path fileName, std::vector<std::string>& foldersInOrder)
+// Extracts the order the images from the cameras shall be put in from a txt file containing the names of the Image folders in that order. The txt file must be named the same as the folder containing the Image folders. One Image folder per camera.
+void findFolderOrder(std::filesystem::path file_name, std::vector<std::string>& folders_in_order)
 {
-	std::fstream txtFile;
+	std::fstream txt_file;
 	std::string line;
-	txtFile.open(fileName /= fileName.filename() += ".txt", std::ios::in);
+	txt_file.open(file_name /= file_name.filename() += ".txt", std::ios::in);
 
-	if (txtFile.is_open())
+	if (txt_file.is_open())
 	{
-		while (std::getline(txtFile, line))
+		while (std::getline(txt_file, line))
 		{
-			foldersInOrder.push_back(line);
+			folders_in_order.push_back(line);
 		}
 	}
-	txtFile.close();
+	txt_file.close();
 }
 
-void WriteToLog(std::string message)
+void writeToLog(const std::string& message)
 {
-	std::string currentDateTime = CurrentDateTime();
-	std::fstream logFile("error_log.txt", std::ios::out | std::ios::app);
-	if (logFile.is_open())
+	const auto current_date_time = currentDateTime();
+	std::fstream log_file("error_log.txt", std::ios::out | std::ios::app);
+	if (log_file.is_open())
 	{
-		logFile << currentDateTime << ' ' << message << '\n';
+		log_file << current_date_time << ' ' << message << '\n';
 	}
-	logFile.close();
+	log_file.close();
 }
 
-int main(int arg, char const* argv[])
+int main(const int arg, char const* argv[])
 {
-	// Arguments: [1]Path to folder with subfolders for each cam, [2]number of images per cam, [3]number of rows in combined image, [4]number of columns in combined image
+	// Arguments: [1]Path to folder with subfolders for each cam, [2]number of images per cam, [3]number of rows in combined Image, [4]number of columns in combined Image
 	if (arg != 5)
 	{
-		WriteToLog("Incorrect number of arguments.");
+		writeToLog("Incorrect number of arguments.");
 		exit(EXIT_FAILURE);
 	}
 	recordingDir = argv[1];
@@ -181,14 +216,16 @@ int main(int arg, char const* argv[])
 
 	recordingDir.make_preferred();
 
-	std::vector<std::string> foldersInOrder;
-	FindFolderOrder(recordingDir, foldersInOrder);
+	std::vector<std::string> folders_in_order;
+	findFolderOrder(recordingDir, folders_in_order);
 
-	numberOfCameras = foldersInOrder.size();
-	if (numberOfCameras > (numberOfImageRows - 1) * numberOfImageColumns && numberOfCameras <= (numberOfImageRows * numberOfImageColumns)) CombineImages(foldersInOrder);
+	numberOfCameras = folders_in_order.size();
+	if (numberOfCameras > (numberOfImageRows - 1) * numberOfImageColumns && numberOfCameras <= (numberOfImageRows *
+		numberOfImageColumns))
+		combineImages(folders_in_order);
 	else
 	{
-		WriteToLog("Incorrect number of columns or rows.");
+		writeToLog("Incorrect number of columns or rows.");
 		exit(EXIT_FAILURE);
 	}
 }

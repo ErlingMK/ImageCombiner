@@ -1,60 +1,70 @@
 #include "pch.h"
 #include "Image.h"
+#include <utility>
 
 
-Image::Image()
+Image::Image(): is_ppm_(false), is_pgm_(false), m_data_points_per_pixel_(0), m_bytes_per_data_point_(0)
 {
 }
 
-Image::Image(std::string width, std::string height, std::string maxVal)
-{ 
-	Image::height = height;
-	Image::width = width;
-	Image::colorVal = maxVal;
+Image::Image(std::string width, std::string height, std::string max_val): is_ppm_(false), is_pgm_(false),
+                                                                          m_data_points_per_pixel_(0),
+                                                                          m_bytes_per_data_point_(0)
+{
+	Image::height = std::move(height);
+	Image::width = std::move(width);
+	Image::max_val = std::move(max_val);
 }
 
 
 Image::~Image()
-{
-}
+= default;
 
-bool Image::IsPpm(std::fstream & imageFile)
+std::string Image::determineFormat(std::fstream & image_file)
 {
-	if (imageFile.is_open())
+	if (image_file.is_open())
 	{
-		char * magicNumber = new char[3];
-		magicNumber[2] = '\0';
+		const auto magic_number = new char[3];
+		magic_number[2] = '\0';
 
-		imageFile.read(magicNumber, 2);
+		image_file.read(magic_number, 2);
 
-		std::string no = magicNumber;
-		if (no != "P6")
+		const std::string no = magic_number;
+		if (no != "P6" || no != "P5")
 		{
-			delete[] magicNumber;
-			std::cout << "Not a .PPM file. Exiting..." << std::endl;
-			exit(-1);
+			delete[] magic_number;
+			std::cout << "Not a .PPM or .PGM file. Exiting..." << std::endl;
+			return "Unknown format.";
 		}
-		else
+		if (no == "P6")
 		{
-			delete[] magicNumber;
-			isPpm = true;
-			return true;
+			is_ppm_ = true;
+			image_format = "P6";
+			m_data_points_per_pixel_ = 3;
+			delete[] magic_number;
+			return "P6";
 		}
+		is_pgm_ = true;
+		image_format = "P5";
+		m_data_points_per_pixel_ = 1;
+		delete[] magic_number;
+		return "P5";
 	}
-	isPpm = false;
-	return false;
+	return "File is not open.";
 }
 
-void Image::GetDimensionsAndColorValue(std::fstream& imageFile)
+void Image::determineDimensionsAndMaxValue(std::fstream& image_file)
 {
-	if (imageFile.is_open())
-	{
-		imageFile.seekg(3);
+	if (!is_ppm_ && !is_pgm_) return;
 
-		char c = '0';
+	if (image_file.is_open())
+	{
+		image_file.seekg(3);
+
+		auto c = '0';
 		while (!isspace(c))
 		{
-			imageFile.get(c);
+			image_file.get(c);
 			width += c;
 		}
 		width.pop_back();
@@ -62,7 +72,7 @@ void Image::GetDimensionsAndColorValue(std::fstream& imageFile)
 		c = '0';
 		while (!isspace(c))
 		{
-			imageFile.get(c);
+			image_file.get(c);
 			height += c;
 		}
 		height.pop_back();
@@ -70,50 +80,48 @@ void Image::GetDimensionsAndColorValue(std::fstream& imageFile)
 		c = '0';
 		while (!isspace(c))
 		{
-			imageFile.get(c);
-			colorVal+= c;
+			image_file.get(c);
+			max_val+= c;
 		}
-		colorVal.pop_back();
+		max_val.pop_back();
+
+		m_bytes_per_data_point_ = std::stoi(max_val) >= 256 ? 2 : 1;
 	}
 }
 
-void Image::ExtractImageRows(std::fstream & imageFile)
+void Image::extractImageRows(std::fstream & image_file)
 {
-	if (!isPpm) 
-	{
-		if (!IsPpm(imageFile)) return;
-		GetDimensionsAndColorValue(imageFile);
-	}
+	determineFormat(image_file);
+	if (!is_ppm_ && !is_pgm_) return;		
+	determineDimensionsAndMaxValue(image_file);
 
-	int i_width = std::stoi(width);
-	int i_height = std::stoi(height);
+	const auto i_width = std::stoi(width);
+	const auto i_height = std::stoi(height);
 
-	//char* row;
-	for (int i = 0; i < i_height; ++i)
+	for (auto i = 0; i < i_height; ++i)
 	{
-		std::shared_ptr<char[]> row(new char[i_width * 3]);
-		//row = new char[i_width * 3];
-		if (imageFile.is_open())
+		std::shared_ptr<char[]> row(new char[i_width * m_data_points_per_pixel_ * m_bytes_per_data_point_]);
+		if (image_file.is_open())
 		{
-			imageFile.read(row.get(), (i_width * 3));
+			image_file.read(row.get(), (i_width * m_data_points_per_pixel_ * m_bytes_per_data_point_));
 		}
-		pixelRows.emplace_back(row);
+		pixel_rows.emplace_back(row);
 	}
-	//row = nullptr;
 }
 
-void Image::FillWithBlack()
+void Image::fillWithBlack()
 {
-	int i_width = std::stoi(width);
-	int i_height = std::stoi(height);
-	for (int i = 0; i < i_height; ++i)
+	const auto i_width = std::stoi(width);
+	const auto i_height = std::stoi(height);
+
+	for (auto i = 0; i < i_height; ++i)
 	{
-		std::shared_ptr<char[]> blackRow(new char[i_width * 3]);
-		char * t = blackRow.get();
-		for (int i = 0; i < i_width * 3; ++i)
+		std::shared_ptr<char[]> black_row(new char[i_width * m_data_points_per_pixel_ * m_bytes_per_data_point_]);
+		const auto t = black_row.get();
+		for (auto z = 0; z < i_width * m_data_points_per_pixel_ * m_bytes_per_data_point_; ++z)
 		{
-			t[i] = '0';
+			t[z] = NULL;
 		}
-		pixelRows.emplace_back(blackRow);
+		pixel_rows.emplace_back(black_row);
 	}
 }

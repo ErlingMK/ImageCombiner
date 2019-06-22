@@ -6,24 +6,28 @@
 #include <vector>
 #include <memory>
 #include <exception>
-class Image
+class Image final
 {
 public:
 	Image();
-	Image(std::string width, std::string height, std::string maxVal);
-	virtual ~Image();
+	Image(std::string width, std::string height, std::string max_val);
+	~Image();
 
 	std::string height;
 	std::string width;
-	std::string colorVal;
-	std::vector<std::shared_ptr<char[]>> pixelRows;
+	std::string max_val;
+	std::string image_format;
+	std::vector<std::shared_ptr<char[]>> pixel_rows;
 
-	bool IsPpm(std::fstream& imageFile);
-	void GetDimensionsAndColorValue(std::fstream& imageFile);
-	void ExtractImageRows(std::fstream& imageFile);
-	void FillWithBlack();
+	std::string determineFormat(std::fstream& image_file);
+	void determineDimensionsAndMaxValue(std::fstream& image_file);
+	void extractImageRows(std::fstream& image_file);
+	void fillWithBlack();
 
 private:
-	bool isPpm;
+	bool is_ppm_;
+	bool is_pgm_;
+	int m_data_points_per_pixel_;
+	int m_bytes_per_data_point_;
 };
 
