@@ -169,6 +169,7 @@ void combineImages(std::vector<std::string>& folders_in_order)
 	for (auto image_file_name = 0; image_file_name < numberOfImagesPerCamera; ++image_file_name)
 	{
 		combineImagesFromOneTimestamp(image_file_name, folders_in_order);
+		std::cout << image_file_name << std::endl;
 	}
 }
 
