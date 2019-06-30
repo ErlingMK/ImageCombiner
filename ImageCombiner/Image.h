@@ -6,28 +6,35 @@
 #include <vector>
 #include <memory>
 #include <exception>
+
 class Image final
 {
 public:
 	Image();
-	Image(std::string width, std::string height, std::string max_val);
+	Image(long width, long height, long max_val);
 	~Image();
 
-	std::string height;
-	std::string width;
-	std::string max_val;
+	long height;
+	long width;
+	long max_val;
 	std::string image_format;
+	std::string magic_number;
+	long m_data_points_per_pixel;
+	long m_bytes_per_data_point;
+
 	std::vector<std::shared_ptr<char[]>> pixel_rows;
 
-	std::string determineFormat(std::fstream& image_file);
+	void determineFormat(std::fstream& image_file);
 	void determineDimensionsAndMaxValue(std::fstream& image_file);
 	void extractImageRows(std::fstream& image_file);
+
 	void fillWithBlack();
-	int m_data_points_per_pixel;
 
 private:
+	std::string height_;
+	std::string width_;
+	std::string max_val_;
 	bool is_ppm_;
 	bool is_pgm_;
-	int m_bytes_per_data_point_;
 };
 
