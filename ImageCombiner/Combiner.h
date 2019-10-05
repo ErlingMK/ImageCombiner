@@ -17,7 +17,7 @@ public:
 private:
 	Image checkDimensions() const;
 	static void readImageAndExtractPixels(const std::filesystem::path& image_file_path, std::vector<Image>& image_row);
-	void createCombinedImage(std::vector<std::vector<Image>>& image_matrix, const int image_file_name) const;
+	void createCombinedImage(std::vector<std::vector<Image>>& image_matrix, const std::string& image_file_name) const;
 	void combineImages();
 	void combineImagesFromOneTimestamp(const int image_file_name);
 
@@ -31,7 +31,7 @@ private:
 
 	std::filesystem::path combined_folder_path_{};
 
-	Image image_prototype_;
+	Image image_template_;
 
 	std::string image_format_;
 	std::string magic_number_;

@@ -23,7 +23,13 @@ std::string currentDateTime()
 	return buf;
 }
 
-// Extracts the order the images from the cameras shall be put in from a txt file containing the names of the Image folders in that order. The txt file must be named the same as the folder containing the Image folders. One Image folder per camera.
+// Finds the placements of the images in the new combined image. You have to provide a txt file containing the names of the image directories for the current recording, the order of these dictates the placement in the new combined image. Use the serial numbers of the cameras, as those are used by the recording software to name the directories the images are put in. New line for each number. The txt file must be named the same as the current recording's directory and placed next to the directories with the images. 
+// Example:
+// 13_01_2019.txt, should contain something like this:
+// 12385618 <-- Should match the name of the directory with this camera's images.
+// 12395298
+// 12312392
+
 void findFolderOrder(std::filesystem::path file_name, std::vector<std::string>& folders_in_order)
 {
 	std::fstream txt_file;
@@ -46,19 +52,26 @@ void writeToLog(const std::string& message)
 	std::fstream log_file("error_log.txt", std::ios::out | std::ios::app);
 	if (log_file.is_open())
 	{
-		log_file << current_date_time << ' ' << message << '\n';
+		log_file << '\n' << current_date_time << ' ' << message;
 	}
 	log_file.close();
 }
 
 int main(const int arg, char const* argv[])
 {
-	// Arguments: [1]Path to folder with subfolders for each cam, [2]number of images per cam, [3]number of rows in combined Image, [4]number of columns in combined Image
+	// Arguments:
+	// [1] Path to folder with subfolders for each cam. 
+	// Example: C:/Recordings/13_01_2018 <-- Folder containing folders with each the cameras' images.
+	// [2] Number of images per camera.
+	// [3] Number of rows in the new combined Image.
+	// [4] Number of columns in the new combined Image.
+	// Full example: C:/Recordings/13_01_2019 1000 3 3
 	if (arg != 5)
 	{
 		writeToLog("Incorrect number of arguments.");
 		exit(EXIT_FAILURE);
 	}
+	
 	//recordingDir.make_preferred();
 
 	std::vector<std::string> folders_in_order;
@@ -67,6 +80,8 @@ int main(const int arg, char const* argv[])
 	const auto number_of_cams = folders_in_order.size();
 
 	auto combiner = Combiner{ argv[1], folders_in_order, std::stoi(argv[4]), std::stoi(argv[3]), number_of_cams, std::stoi(argv[2]) };
+
+	// Starts the combination process.
 	combiner.initialize();
 }
 

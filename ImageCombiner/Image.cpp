@@ -53,6 +53,7 @@ void Image::determineFormat(std::fstream & image_file)
 	}
 }
 
+// determineFormat() must be called before this.
 void Image::determineDimensionsAndMaxValue(std::fstream& image_file)
 {
 	if (!is_ppm_ && !is_pgm_) return;
@@ -111,6 +112,8 @@ void Image::extractImageRows(std::fstream & image_file)
 	}
 }
 
+
+// Helper method to make a gray/black image. Used to fill in empty spots in an image matrix.
 void Image::fillWithBlack()
 {
 	const auto s = m_data_points_per_pixel * width * m_bytes_per_data_point;

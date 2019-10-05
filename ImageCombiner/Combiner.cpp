@@ -9,7 +9,7 @@ Combiner::Combiner(const std::string path, std::vector<std::string> camera_order
 
 void Combiner::initialize()
 {
-	image_prototype_ = checkDimensions();
+	image_template_ = checkDimensions();
 
 	combined_folder_path_ = path;
 	combined_folder_path_ /= "combined";
@@ -20,6 +20,7 @@ void Combiner::initialize()
 
 void Combiner::combineImages()
 {
+	// Currently the images must be named like this: 0.ppm, 1.ppm, 2.ppm etc. Change the image_file_name variable here to do it differently. Must be without the filetype suffix.
 	for (auto image_file_name = 0; image_file_name < images_per_cam_; ++image_file_name)
 	{
 		combineImagesFromOneTimestamp(image_file_name);
@@ -28,6 +29,9 @@ void Combiner::combineImages()
 
 void Combiner::combineImagesFromOneTimestamp(const int image_file_name)
 {
+	const auto image_file_name_str = std::to_string(image_file_name);
+
+	// Helper variable to determine the need for gray space in new combined image.
 	const auto images_in_last_col = (number_of_columns_ - helper());
 
 	auto cam_counter = 0;
@@ -38,13 +42,14 @@ void Combiner::combineImagesFromOneTimestamp(const int image_file_name)
 	{
 		image_matrix.emplace_back();
 
+		// Checks if the image is in the last row of the new combined image, and if gray space is needed.
 		if (inLastRowWithEmptySpots(row_number, images_in_last_col))
 		{
 			for (auto pos_in_last_row = 0; pos_in_last_row < number_of_columns_; ++pos_in_last_row)
 			{
 				if (pos_in_last_row >= images_in_last_col)
 				{
-					Image empty_image(image_prototype_.width, image_prototype_.height, image_prototype_.max_val);
+					Image empty_image(image_template_.width, image_template_.height, image_template_.max_val);
 					empty_image.fillWithBlack();
 					image_matrix[row_number].push_back(empty_image);
 				}
@@ -52,7 +57,7 @@ void Combiner::combineImagesFromOneTimestamp(const int image_file_name)
 				{
 					auto recording_dir = path;
 					const auto image_file_path(recording_dir /=
-						camera_order[cam_counter] + "\\" + std::to_string(image_file_name) + "." + image_format_);
+						camera_order[cam_counter] + "\\" + image_file_name_str + "." + image_format_);
 
 					cam_counter++;
 
@@ -66,7 +71,7 @@ void Combiner::combineImagesFromOneTimestamp(const int image_file_name)
 			{
 				auto recording_dir = path;
 				const auto image_file_path(recording_dir /=
-					camera_order[cam_counter] + "\\" + std::to_string(image_file_name) + image_format_);
+					camera_order[cam_counter] + "\\" + image_file_name_str + image_format_);
 
 				cam_counter++;
 
@@ -74,24 +79,29 @@ void Combiner::combineImagesFromOneTimestamp(const int image_file_name)
 			}
 		}
 	}
-	createCombinedImage(image_matrix, image_file_name);
+	createCombinedImage(image_matrix, image_file_name_str);
 }
 
 
-void Combiner::createCombinedImage(std::vector<std::vector<Image>>& image_matrix, const int image_file_name) const
+void Combiner::createCombinedImage(std::vector<std::vector<Image>>& image_matrix, const std::string& image_file_name) const
 {
 	std::fstream new_image_file;
-	const auto s = image_prototype_.m_data_points_per_pixel * image_prototype_.width;
+	const auto s = image_template_.m_data_points_per_pixel * image_template_.width;
 	auto new_file_path = combined_folder_path_;
 
-	new_image_file.open(new_file_path /= (std::to_string(image_file_name) + "." + image_prototype_.image_format), std::ios::binary | std::ios::out);
-	new_image_file << image_prototype_.magic_number << "\n" << image_prototype_.width * number_of_columns_ << " " << image_prototype_.height * number_of_rows_ << "\n" << image_prototype_.max_val
+	new_image_file.open(new_file_path /= image_file_name + "." + image_template_.image_format, std::ios::binary | std::ios::out);
+
+	// Writes the headers for the .ppm or .pgm format. 
+	new_image_file << image_template_.magic_number << "\n" << image_template_.width * number_of_columns_ << " " << image_template_.height * number_of_rows_ << "\n" << image_template_.max_val
 		<< "\n";
 
+	// Combines the pixels from each image into one. 
+	// Goes through one row in the matrix at the time and writes one whole new row of pixels from left to right in that matrix row. 
 	for (auto& k : image_matrix)
 	{
-		for (auto i = 0; i < image_prototype_.height; ++i)
+		for (auto i = 0; i < image_template_.height; ++i)
 		{
+			// Writes one row of pixels from an image before going and doing the same to the right adjacent image.
 			for (auto& j : k)
 			{
 				auto& pixel_rows = j.pixel_rows;
@@ -102,6 +112,8 @@ void Combiner::createCombinedImage(std::vector<std::vector<Image>>& image_matrix
 	new_image_file.close();
 	image_matrix.clear();
 }
+
+// Checks the first image in the first camera's image directory for image format and dimensions. Will use this data for the rest of the current combination process.
 Image Combiner::checkDimensions() const
 {
 	std::fstream image_file;
